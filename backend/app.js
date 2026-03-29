@@ -1,4 +1,6 @@
-const PORT = 5000
+require('dotenv').config()
+
+const PORT = process.env.PORT || 5000
 const express = require('express')
 const mysql = require('mysql')
 const myconnection = require('express-myconnection')
@@ -9,7 +11,7 @@ const cron = require('node-cron')
 const app = express()
 
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: ['http://localhost:3000', 'https://hobbyclass.vercel.app'],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));
@@ -17,10 +19,11 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
 const dbConfig = {
-  host: 'localhost',
-  user: 'root',
-  password: '',
-  database: 'hobbyclass'
+  host: process.env.MYSQLHOST,
+  user: process.env.MYSQLUSER,
+  password: process.env.MYSQLPASSWORD,
+  database: process.env.MYSQLDATABASE,
+  port: process.env.MYSQLPORT
 }
 
 app.use(myconnection(mysql, dbConfig, 'pool'))
@@ -28,8 +31,8 @@ app.use(myconnection(mysql, dbConfig, 'pool'))
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: 'lakrarajaa@gmail.com',          
-    pass: 'isplbmnbbyvbhodf'          
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_PASS
   }
 })
 
@@ -112,7 +115,7 @@ app.get('/api/cours/:id', (req, res) => {
   const { id } = req.params
   req.getConnection((err, connection) => {
     connection.query(`
-      SELECT c.*, cat.nom as categorie, u.prenom, u.nom as formateur_nom
+      SELECT c.*, cat.nom as categorie, u.prenom, u.nom as formateur_nom, u.photo as formateur_photo
       FROM cours c
       JOIN categorie cat ON c.categorie_id = cat.id
       JOIN utilisateur u ON c.formateur_id = u.id
@@ -281,7 +284,6 @@ app.put('/api/reservations/:id/annuler', (req, res) => {
           (err2) => {
             if (err2) return res.status(500).json({ error: err2.message });
 
-            // Récupérer infos pour email + notification
             connection.query(`
               SELECT u.email, u.prenom, u.nom, u.id as client_id,
                      c.titre,
@@ -297,32 +299,27 @@ app.put('/api/reservations/:id/annuler', (req, res) => {
               if (!err3 && results.length) {
                 const { email, prenom, nom, client_id, titre, date, heure_debut } = results[0]
 
-                // Notification en base
                 creerNotification(
                   connection,
                   client_id,
                   'ANNULATION',
-                  ` Votre réservation pour le cours "${titre}" du ${date} à ${heure_debut} a été annulée.`,
+                  `Votre réservation pour le cours "${titre}" du ${date} à ${heure_debut} a été annulée.`,
                   'HAUTE'
                 )
 
-                // Email d'annulation
                 const mailOptions = {
-                  from: '"HobbyClass " <lakrarajaa@gmail.com>',
+                  from: `"HobbyClass" <${process.env.GMAIL_USER}>`,
                   to: email,
-                  subject: ` Annulation de votre réservation — ${titre}`,
+                  subject: `Annulation de votre réservation — ${titre}`,
                   html: `
                     <div style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #E8E4FF;">
-                      
                       <div style="background: #7C3AED; padding: 2rem; text-align: center;">
                         <h1 style="color: white; margin: 0; font-size: 1.8rem; font-weight: 800;">Hobby<span style="font-weight: 300;">Class</span></h1>
                         <p style="color: rgba(255,255,255,0.8); margin: 0.5rem 0 0;">Annulation de réservation</p>
                       </div>
-
                       <div style="padding: 2rem;">
                         <p style="color: #1E1B4B;">Bonjour <strong>${prenom} ${nom}</strong>,</p>
                         <p style="color: #64748B;">Votre réservation a bien été annulée. Voici le récapitulatif :</p>
-
                         <div style="background: #FEF2F2; border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0; border: 1px solid #FECACA;">
                           <table style="width: 100%; border-collapse: collapse;">
                             <tr>
@@ -339,15 +336,12 @@ app.put('/api/reservations/:id/annuler', (req, res) => {
                             </tr>
                             <tr>
                               <td style="padding: 0.5rem 0; color: #94A3B8; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; border-top: 1px solid #FECACA;">Statut</td>
-                              <td style="padding: 0.5rem 0; color: #DC2626; font-weight: 800; text-align: right; border-top: 1px solid #FECACA;"> Annulée</td>
+                              <td style="padding: 0.5rem 0; color: #DC2626; font-weight: 800; text-align: right; border-top: 1px solid #FECACA;">Annulée</td>
                             </tr>
                           </table>
                         </div>
-
                         <p style="color: #64748B; font-size: 0.9rem;">Vous pouvez réserver un autre cours à tout moment sur HobbyClass.</p>
-                        <p style="color: #64748B; font-size: 0.9rem;">Des questions ? Contactez-nous à <a href="mailto:contact@hobbyclass.fr" style="color: #7C3AED;">contact@hobbyclass.fr</a></p>
                       </div>
-
                       <div style="background: #F8F7FF; padding: 1.2rem 2rem; text-align: center; border-top: 1px solid #E8E4FF;">
                         <p style="color: #94A3B8; font-size: 0.8rem; margin: 0;">© 2026 HobbyClass — Tous droits réservés</p>
                       </div>
@@ -417,7 +411,6 @@ app.post('/api/reservations', (req, res) => {
   })
 })
 
-
 // POST paiement
 app.post('/api/paiement/:reservation_id', (req, res) => {
   const { reservation_id } = req.params
@@ -436,7 +429,6 @@ app.post('/api/paiement/:reservation_id', (req, res) => {
           err2 => {
             if (err2) return res.status(500).json({ error: err2.message })
 
-            // Récupérer infos pour email + notification
             connection.query(`
               SELECT u.email, u.prenom, u.nom, u.id as client_id,
                      c.titre, c.prix,
@@ -453,7 +445,6 @@ app.post('/api/paiement/:reservation_id', (req, res) => {
               if (!err3 && results.length) {
                 const { email, prenom, nom, client_id, titre, prix, date, heure_debut, heure_fin } = results[0]
 
-                // 1. Créer notification en base
                 creerNotification(
                   connection,
                   client_id,
@@ -462,23 +453,19 @@ app.post('/api/paiement/:reservation_id', (req, res) => {
                   'HAUTE'
                 )
 
-                // 2. Envoyer email
                 const mailOptions = {
-                  from: '"HobbyClass " <lakrarajaa@gmail.com>',
+                  from: `"HobbyClass" <${process.env.GMAIL_USER}>`,
                   to: email,
                   subject: `✅ Confirmation de réservation — ${titre}`,
                   html: `
                     <div style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #E8E4FF;">
-                      
                       <div style="background: #7C3AED; padding: 2rem; text-align: center;">
                         <h1 style="color: white; margin: 0; font-size: 1.8rem; font-weight: 800;">Hobby<span style="font-weight: 300;">Class</span></h1>
-                        <p style="color: rgba(255,255,255,0.8); margin: 0.5rem 0 0;">Votre réservation est confirmée </p>
+                        <p style="color: rgba(255,255,255,0.8); margin: 0.5rem 0 0;">Votre réservation est confirmée</p>
                       </div>
-
                       <div style="padding: 2rem;">
                         <p style="color: #1E1B4B;">Bonjour <strong>${prenom} ${nom}</strong>,</p>
                         <p style="color: #64748B;">Votre réservation a bien été enregistrée. Voici le récapitulatif :</p>
-
                         <div style="background: #F5F3FF; border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
                           <table style="width: 100%; border-collapse: collapse;">
                             <tr>
@@ -499,10 +486,8 @@ app.post('/api/paiement/:reservation_id', (req, res) => {
                             </tr>
                           </table>
                         </div>
-
                         <p style="color: #64748B; font-size: 0.9rem;">Des questions ? Contactez-nous à <a href="mailto:contact@hobbyclass.fr" style="color: #7C3AED;">contact@hobbyclass.fr</a></p>
                       </div>
-
                       <div style="background: #F8F7FF; padding: 1.2rem 2rem; text-align: center; border-top: 1px solid #E8E4FF;">
                         <p style="color: #94A3B8; font-size: 0.8rem; margin: 0;">© 2026 HobbyClass — Tous droits réservés</p>
                       </div>
@@ -551,7 +536,6 @@ cron.schedule('0 9 * * *', () => {
 
     results.forEach(({ client_id, email, prenom, nom, titre, date, heure_debut }) => {
 
-      // Notification en base
       connCron.query(
         'INSERT INTO notification (utilisateur_id, type, contenu, priorite) VALUES (?, ?, ?, ?)',
         [
@@ -562,23 +546,19 @@ cron.schedule('0 9 * * *', () => {
         ]
       )
 
-      // Email de rappel
       const mailRappel = {
-        from: '"HobbyClass " <lakrarajaa@gmail.com>',
+        from: `"HobbyClass" <${process.env.GMAIL_USER}>`,
         to: email,
         subject: `🔔 Rappel — Votre cours "${titre}" est demain !`,
         html: `
           <div style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #E8E4FF;">
-            
             <div style="background: #7C3AED; padding: 2rem; text-align: center;">
               <h1 style="color: white; margin: 0; font-size: 1.8rem; font-weight: 800;">Hobby<span style="font-weight: 300;">Class</span></h1>
-              <p style="color: rgba(255,255,255,0.8); margin: 0.5rem 0 0;">Votre cours est demain </p>
+              <p style="color: rgba(255,255,255,0.8); margin: 0.5rem 0 0;">Votre cours est demain</p>
             </div>
-
             <div style="padding: 2rem;">
               <p style="color: #1E1B4B;">Bonjour <strong>${prenom} ${nom}</strong>,</p>
               <p style="color: #64748B;">C'est un rappel pour votre cours de demain :</p>
-
               <div style="background: #F5F3FF; border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
                 <table style="width: 100%; border-collapse: collapse;">
                   <tr>
@@ -595,10 +575,8 @@ cron.schedule('0 9 * * *', () => {
                   </tr>
                 </table>
               </div>
-
               <p style="color: #64748B; font-size: 0.9rem;">À demain ! 😊</p>
             </div>
-
             <div style="background: #F8F7FF; padding: 1.2rem 2rem; text-align: center; border-top: 1px solid #E8E4FF;">
               <p style="color: #94A3B8; font-size: 0.8rem; margin: 0;">© 2026 HobbyClass — Tous droits réservés</p>
             </div>
