@@ -166,7 +166,7 @@ function App() {
             <p className="section-subtitle">Explorez nos domaines et trouvez votre passion</p>
             <div className="categories-grid">
               {[
-                { nom: 'Peinture', photo: 'peinture.jpg', count: '3 cours' },
+                { nom: 'Peinture', photo: 'peinture2.jpg', count: '3 cours' },
                 { nom: 'Cuisine', photo: 'cuisine.jpg', count: '3 cours' },
                 { nom: 'Musique', photo: 'musique.jpg', count: '3 cours' },
                 { nom: 'Danse', photo: 'danse.jpg', count: '3 cours' },
