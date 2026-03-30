@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import API_URL from './Api';
 
 const Login = ({ onLogin }) => {
   const [email, setEmail] = useState('');
@@ -11,7 +12,7 @@ const Login = ({ onLogin }) => {
     setLoading(true);
     setError(null);
 
-    fetch('http://localhost:5000/api/auth/login', {
+    fetch(`${API_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, mot_de_passe: motDePasse })
@@ -34,7 +35,7 @@ const Login = ({ onLogin }) => {
   return (
     <div className="login-container">
       <div className="login-card">
-        <h2> HobbyClass</h2>
+        <h2>HobbyClass</h2>
         <p className="login-subtitle">Connectez-vous à votre compte</p>
 
         <form onSubmit={handleSubmit}>
@@ -60,10 +61,10 @@ const Login = ({ onLogin }) => {
             />
           </div>
 
-          {error && <p className="error-msg"> {error}</p>}
+          {error && <p className="error-msg">{error}</p>}
 
           <button type="submit" className="btn-login" disabled={loading}>
-            {loading ? ' Connexion...' : 'Se connecter'}
+            {loading ? 'Connexion...' : 'Se connecter'}
           </button>
         </form>
       </div>

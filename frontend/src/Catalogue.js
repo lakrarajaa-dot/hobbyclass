@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaClock, FaUsers, FaStar } from 'react-icons/fa'
 import './App.css';
+import API_URL from './Api';
 
 const Catalogue = ({ searchQuery, onReserver, onVoirFormateur }) => {
   const [cours, setCours] = useState([]);
@@ -10,7 +11,7 @@ const Catalogue = ({ searchQuery, onReserver, onVoirFormateur }) => {
   const [filtresOuverts, setFiltresOuverts] = useState(false);
 
   useEffect(() => {
-    fetch('http://localhost:5000/api/cours')
+    fetch(`${API_URL}/api/cours`)
       .then(response => {
         if (!response.ok) throw new Error('Failed to fetch');
         return response.json();

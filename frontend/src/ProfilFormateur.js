@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaClock, FaUsers, FaStar } from 'react-icons/fa';
+import API_URL from './Api';
 
 const ProfilFormateur = ({ formateurId, onBack, onReserver }) => {
   const [formateur, setFormateur] = useState(null);
@@ -7,7 +8,7 @@ const ProfilFormateur = ({ formateurId, onBack, onReserver }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`http://localhost:5000/api/utilisateurs/${formateurId}`)
+    fetch(`${API_URL}/api/utilisateurs/${formateurId}`)
       .then(res => res.json())
       .then(data => {
         setFormateur(data);
@@ -15,7 +16,7 @@ const ProfilFormateur = ({ formateurId, onBack, onReserver }) => {
       })
       .catch(() => setLoading(false));
 
-    fetch(`http://localhost:5000/api/cours/formateur/${formateurId}`)
+    fetch(`${API_URL}/api/cours/formateur/${formateurId}`)
       .then(res => res.json())
       .then(data => setCours(data));
   }, [formateurId]);
@@ -30,12 +31,12 @@ const ProfilFormateur = ({ formateurId, onBack, onReserver }) => {
   };
 
   const formatDuree = (minutes) => {
-    const h = Math.floor(minutes / 60)
-    const m = minutes % 60
-    if (h === 0) return `${m}min`
-    if (m === 0) return `${h}h`
-    return `${h}h${m}`
-  }
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    if (h === 0) return `${m}min`;
+    if (m === 0) return `${h}h`;
+    return `${h}h${m}`;
+  };
 
   if (loading) return <div className="loading">Chargement...</div>;
   if (!formateur) return <div className="error">Formateur introuvable</div>;
@@ -43,13 +44,9 @@ const ProfilFormateur = ({ formateurId, onBack, onReserver }) => {
   return (
     <div className="profil-container">
 
-      {/* BOUTON RETOUR */}
       <button className="btn-back" onClick={onBack}>← Retour au catalogue</button>
 
-      {/* HEADER FORMATEUR */}
       <div className="profil-header" style={{ marginTop: '1rem' }}>
-
-        {/* PHOTO FORMATEUR ✅ CORRIGÉ : /images/formateurs/ */}
         <div className="profil-avatar-photo">
           {formateur.photo ? (
             <img
@@ -67,14 +64,12 @@ const ProfilFormateur = ({ formateurId, onBack, onReserver }) => {
             {formateur.prenom.charAt(0)}{formateur.nom.charAt(0)}
           </div>
         </div>
-
         <div className="profil-header-info">
           <h2>{formateur.prenom} {formateur.nom}</h2>
           <span className="profil-role">FORMATEUR</span>
         </div>
       </div>
 
-      {/* INFOS FORMATEUR */}
       <div className="formateur-infos-grid">
         <div className="formateur-info-item">
           <span className="fi-label">Email</span>
@@ -108,7 +103,6 @@ const ProfilFormateur = ({ formateurId, onBack, onReserver }) => {
         )}
       </div>
 
-      {/* COURS DU FORMATEUR */}
       <div className="profil-content">
         <h3>Ses cours ({cours.length})</h3>
         {cours.length === 0 && (
@@ -117,8 +111,6 @@ const ProfilFormateur = ({ formateurId, onBack, onReserver }) => {
         <div className="grille-cours" style={{ marginTop: '1rem' }}>
           {cours.map(c => (
             <div key={c.id} className="carte-cours">
-
-              {/* IMAGE COURS ✅ CORRIGÉ : photos (et non photo) + /images/cours/ */}
               <div className="carte-image">
                 {c.photos ? (
                   <img
@@ -138,7 +130,6 @@ const ProfilFormateur = ({ formateurId, onBack, onReserver }) => {
                 <span className="badge-categorie-image">{c.categorie}</span>
               </div>
 
-              {/* TITRE + NIVEAU */}
               <div className="carte-titre-row">
                 <h3>{c.titre}</h3>
                 {c.niveau && (
@@ -148,16 +139,13 @@ const ProfilFormateur = ({ formateurId, onBack, onReserver }) => {
                 )}
               </div>
 
-              {/* DESCRIPTION */}
               <p className="cours-description">{c.description}</p>
 
-              {/* INFOS */}
               <div className="carte-infos">
                 <span><FaClock style={{ marginRight: '4px', color: 'var(--violet)' }}/>{formatDuree(c.duree)}</span>
                 <span><FaUsers style={{ marginRight: '4px', color: 'var(--violet)' }}/>{c.nb_places} max</span>
               </div>
 
-              {/* FOOTER : RATING + PRIX ✅ CORRIGÉ : fallback honnête */}
               <div className="carte-footer">
                 <div className="carte-rating">
                   <FaStar style={{ color: '#F59E0B' }}/>
@@ -176,7 +164,6 @@ const ProfilFormateur = ({ formateurId, onBack, onReserver }) => {
                 onClick={() => onReserver(c)}>
                 Réserver
               </button>
-
             </div>
           ))}
         </div>

@@ -1,4 +1,6 @@
-const BASE_URL = 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
 
 export const getCours = () => 
-  fetch(`${BASE_URL}/cours`).then(res => res.json());
+  fetch(`${API_URL}/api/cours`).then(res => res.json());
+
+export default API_URL;

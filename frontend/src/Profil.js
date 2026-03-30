@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import API_URL from './Api';
 
 const Profil = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('infos');
@@ -18,7 +19,7 @@ const Profil = ({ user, onLogout }) => {
   useEffect(() => {
     if (activeTab === 'reservations') {
       setLoading(true);
-      fetch(`http://localhost:5000/api/reservations/client/${user.id}`)
+      fetch(`${API_URL}/api/reservations/client/${user.id}`)
         .then(res => res.json())
         .then(data => {
           setReservations(data);
@@ -30,7 +31,7 @@ const Profil = ({ user, onLogout }) => {
 
   const handleModifierInfos = (e) => {
     e.preventDefault();
-    fetch(`http://localhost:5000/api/utilisateurs/${user.id}`, {
+    fetch(`${API_URL}/api/utilisateurs/${user.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nom, prenom, telephone })
@@ -54,7 +55,7 @@ const Profil = ({ user, onLogout }) => {
       setError('Les mots de passe ne correspondent pas !');
       return;
     }
-    fetch(`http://localhost:5000/api/utilisateurs/${user.id}/password`, {
+    fetch(`${API_URL}/api/utilisateurs/${user.id}/password`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ancien_mdp: ancienMdp, nouveau_mdp: nouveauMdp })
@@ -64,7 +65,7 @@ const Profil = ({ user, onLogout }) => {
         if (data.error) {
           setError(data.error);
         } else {
-          setSuccessMsg(' Mot de passe modifié !');
+          setSuccessMsg('Mot de passe modifié !');
           setAncienMdp('');
           setNouveauMdp('');
           setConfirmMdp('');
@@ -75,26 +76,26 @@ const Profil = ({ user, onLogout }) => {
   };
 
   const handleAnnuler = (reservationId) => {
-  if (!window.confirm('Voulez-vous vraiment annuler cette réservation ?')) return;
-  
-  fetch(`http://localhost:5000/api/reservations/${reservationId}/annuler`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' }
-  })
-    .then(res => res.json())
-    .then(data => {
-      if (data.error) {
-        setError(data.error);
-      } else {
-        setSuccessMsg('Réservation annulée avec succès !');
-        setReservations(reservations.map(r =>
-          r.id === reservationId ? { ...r, statut: 'ANNULEE' } : r
-        ));
-        setTimeout(() => setSuccessMsg(null), 3000);
-      }
+    if (!window.confirm('Voulez-vous vraiment annuler cette réservation ?')) return;
+
+    fetch(`${API_URL}/api/reservations/${reservationId}/annuler`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' }
     })
-    .catch(() => setError('Erreur lors de l annulation'));
-};
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) {
+          setError(data.error);
+        } else {
+          setSuccessMsg('Réservation annulée avec succès !');
+          setReservations(reservations.map(r =>
+            r.id === reservationId ? { ...r, statut: 'ANNULEE' } : r
+          ));
+          setTimeout(() => setSuccessMsg(null), 3000);
+        }
+      })
+      .catch(() => setError("Erreur lors de l'annulation"));
+  };
 
   return (
     <div className="profil-container">
@@ -115,50 +116,46 @@ const Profil = ({ user, onLogout }) => {
         <button
           className={`profil-tab ${activeTab === 'infos' ? 'active' : ''}`}
           onClick={() => setActiveTab('infos')}>
-           Mes informations
+          Mes informations
         </button>
         <button
           className={`profil-tab ${activeTab === 'reservations' ? 'active' : ''}`}
           onClick={() => setActiveTab('reservations')}>
-           Mes réservations
+          Mes réservations
         </button>
         <button
           className={`profil-tab ${activeTab === 'password' ? 'active' : ''}`}
           onClick={() => setActiveTab('password')}>
-           Mot de passe
+          Mot de passe
         </button>
       </div>
 
       {/* MESSAGES */}
       {successMsg && <p className="success-msg">{successMsg}</p>}
-      {error && <p className="error-msg">❌ {error}</p>}
+      {error && <p className="error-msg">{error}</p>}
 
       {/* ONGLET INFOS */}
       {activeTab === 'infos' && (
         <div className="profil-content">
           <h3>Mes informations personnelles</h3>
-
-          {/* INFOS AFFICHAGE */}
           <div className="profil-infos-cards">
             <div className="info-card">
-              <span className="info-label"> Rôle</span>
+              <span className="info-label">Rôle</span>
               <span className="info-value">{user.role}</span>
             </div>
             {user.specialites && (
               <div className="info-card">
-                <span className="info-label"> Spécialité</span>
+                <span className="info-label">Spécialité</span>
                 <span className="info-value">{user.specialites}</span>
               </div>
             )}
             {user.biographie && (
               <div className="info-card full">
-                <span className="info-label"> Biographie</span>
+                <span className="info-label">Biographie</span>
                 <span className="info-value">{user.biographie}</span>
               </div>
             )}
           </div>
-
-          {/* FORMULAIRE */}
           <form onSubmit={handleModifierInfos}>
             <div className="form-row">
               <div className="form-group">
@@ -199,7 +196,7 @@ const Profil = ({ user, onLogout }) => {
               />
             </div>
             <button type="submit" className="btn-sauvegarder">
-               Sauvegarder
+              Sauvegarder
             </button>
           </form>
         </div>
@@ -207,40 +204,37 @@ const Profil = ({ user, onLogout }) => {
 
       {/* ONGLET RESERVATIONS */}
       {activeTab === 'reservations' && (
-  <div className="profil-content">
-    <h3>Mes réservations</h3>
-    {loading && <p className="loading">Chargement...</p>}
-    {!loading && reservations.length === 0 && (
-      <p className="no-result">Aucune réservation pour l'instant</p>
-    )}
-    <div className="reservations-liste">
-      {reservations.map(res => (
-        <div key={res.id} className="reservation-item">
-          <div className="reservation-item-info">
-            <h4>{res.titre}</h4>
-            <p>Date de réservation : {new Date(res.date_reservation).toLocaleDateString('fr-FR')}</p>
-            <p>Montant : {res.montant} €</p>
-          </div>
-          <div className="reservation-item-actions">
-            <span className={`statut-badge ${res.statut.toLowerCase()}`}>
-              {res.statut}
-            </span>
-            {res.statut !== 'ANNULEE' && (
-              <button
-                className="btn-annuler"
-                onClick={() => handleAnnuler(res.id)}>
-                Annuler
-              </button>
-            )}
+        <div className="profil-content">
+          <h3>Mes réservations</h3>
+          {loading && <p className="loading">Chargement...</p>}
+          {!loading && reservations.length === 0 && (
+            <p className="no-result">Aucune réservation pour l'instant</p>
+          )}
+          <div className="reservations-liste">
+            {reservations.map(res => (
+              <div key={res.id} className="reservation-item">
+                <div className="reservation-item-info">
+                  <h4>{res.titre}</h4>
+                  <p>Date de réservation : {new Date(res.date_reservation).toLocaleDateString('fr-FR')}</p>
+                  <p>Montant : {res.montant} €</p>
+                </div>
+                <div className="reservation-item-actions">
+                  <span className={`statut-badge ${res.statut.toLowerCase()}`}>
+                    {res.statut}
+                  </span>
+                  {res.statut !== 'ANNULEE' && (
+                    <button
+                      className="btn-annuler"
+                      onClick={() => handleAnnuler(res.id)}>
+                      Annuler
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
-      ))}
-    </div>
-  </div>
-)}
-      
-                  
-        
+      )}
 
       {/* ONGLET MOT DE PASSE */}
       {activeTab === 'password' && (
@@ -278,7 +272,7 @@ const Profil = ({ user, onLogout }) => {
               />
             </div>
             <button type="submit" className="btn-sauvegarder">
-               Modifier le mot de passe
+              Modifier le mot de passe
             </button>
           </form>
         </div>
