@@ -97,14 +97,14 @@ function App() {
       </a>
     </li>
     <li>
-      <a href="#"
+      <a href="#comment"  
         onClick={() => { setActiveSection('comment'); setMenuOuvert(false); }}
         className={activeSection === 'comment' ? 'active' : ''}>
         Comment ça marche
       </a>
     </li>
     <li>
-      <a href="#"
+      <a href="#contact"  
         onClick={() => { setActiveSection('contact'); setMenuOuvert(false); }}
         className={activeSection === 'contact' ? 'active' : ''}>
         Contact
