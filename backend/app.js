@@ -18,12 +18,16 @@ app.use(cors({
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
+const url = require('url');
+const dbUrl = url.parse(process.env.MYSQL_URL);
+const [user, password] = dbUrl.auth.split(':');
+
 const dbConfig = {
-  host: process.env.MYSQLHOST,
-  user: process.env.MYSQLUSER,
-  password: process.env.MYSQLPASSWORD,
-  database: process.env.MYSQLDATABASE,
-  port: process.env.MYSQLPORT
+  host: dbUrl.hostname,
+  user: user,
+  password: password,
+  database: dbUrl.pathname.replace('/', ''),
+  port: dbUrl.port
 }
 
 app.use(myconnection(mysql, dbConfig, 'pool'))
