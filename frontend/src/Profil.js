@@ -328,6 +328,131 @@ const Profil = ({ user, onLogout }) => {
             </form>
           </div>
         )}
+
+        {activeTab === 'reservations' && (
+          <div className="reservations-section">
+            <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '1.5rem' }}>📅</span> Mes Réservations
+            </h3>
+            {loading ? <p>Chargement de vos réservations...</p> : (
+              <div className="reservations-liste">
+                {reservations.length > 0 ? (
+                  reservations.map((res) => (
+                    <div key={res.id} className="reservation-item">
+                      <div className="reservation-item-info">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <h4>{res.titre}</h4>
+                          <span className={`statut-badge ${res.statut.toLowerCase()}`}>
+                            {res.statut}
+                          </span>
+                        </div>
+                        <p>
+                          🗓️ {res.date_cours} à {res.heure_debut} • 💰 {res.montant}€
+                        </p>
+                      </div>
+                      <div className="reservation-item-actions">
+                        {res.statut !== 'ANNULEE' && (
+                          <button 
+                            className="btn-annuler" 
+                            onClick={() => {
+                              if(window.confirm('Voulez-vous vraiment annuler cette réservation ?')) {
+                                fetch(`${API_URL}/api/reservations/${res.id}/annuler`, { method: 'PUT' })
+                                  .then(r => r.json())
+                                  .then(() => {
+                                    alert('Réservation annulée');
+                                    fetchReservations();
+                                  });
+                              }
+                            }}
+                          >
+                            Annuler
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '3rem', background: '#F9FAFB', borderRadius: '16px' }}>
+                    <p style={{ color: 'var(--text-light)', marginBottom: '1rem' }}>Vous n'avez pas encore de réservation.</p>
+                    <button className="btn-primary" onClick={() => window.location.href='/catalogue'}>Découvrir les cours</button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'cours' && (
+          <div className="mes-cours-section">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ margin: 0 }}>Mes Cours Proposés</h3>
+              <button className="btn-primary" onClick={() => { setEditingCourseId(null); setCourseForm(emptyCourse); setShowForm(true); }}>
+                + Créer un cours
+              </button>
+            </div>
+
+            {showForm && (
+              <div className="modal-overlay">
+                <div className="modal-content" style={{maxWidth: '700px', width:'90%'}}>
+                  <h3>{editingCourseId ? 'Modifier le cours' : 'Nouveau Cours'}</h3>
+                  <form onSubmit={handleCourseSubmit}>
+                    <div className="form-group">
+                      <label>Titre du cours</label>
+                      <input type="text" value={courseForm.titre} onChange={e => setCourseForm({...courseForm, titre: e.target.value})} required />
+                    </div>
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label>Catégorie</label>
+                        <select value={courseForm.categorie_id} onChange={e => setCourseForm({...courseForm, categorie_id: e.target.value})} required>
+                          <option value="">Sélectionner...</option>
+                          {categories.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Niveau</label>
+                        <select value={courseForm.niveau} onChange={e => setCourseForm({...courseForm, niveau: e.target.value})}>
+                          <option value="Débutant">Débutant</option>
+                          <option value="Intermédiaire">Intermédiaire</option>
+                          <option value="Avancé">Avancé</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="form-row">
+                      <div className="form-group"><label>Prix (€)</label><input type="number" value={courseForm.prix} onChange={e => setCourseForm({...courseForm, prix: e.target.value})} required /></div>
+                      <div className="form-group"><label>Durée (min)</label><input type="number" value={courseForm.duree} onChange={e => setCourseForm({...courseForm, duree: e.target.value})} required /></div>
+                      <div className="form-group"><label>Places</label><input type="number" value={courseForm.nb_places} onChange={e => setCourseForm({...courseForm, nb_places: e.target.value})} required /></div>
+                    </div>
+                    <div className="form-group">
+                      <label>Description</label>
+                      <textarea value={courseForm.description} onChange={e => setCourseForm({...courseForm, description: e.target.value})} rows="3"></textarea>
+                    </div>
+                    <div className="modal-actions" style={{marginTop:'1.5rem'}}>
+                      <button type="submit" className="btn-primary">Enregistrer</button>
+                      <button type="button" className="btn-back" onClick={() => setShowForm(false)}>Annuler</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {loading ? <p>Chargement...</p> : (
+              <div className="reservations-liste">
+                {mesCours.length > 0 ? mesCours.map(c => (
+                  <div key={c.id} className="reservation-item">
+                    <div className="reservation-item-info">
+                      <h4>{c.titre}</h4>
+                      <p>{c.categorie} • {c.prix}€ • {c.nb_places} places</p>
+                    </div>
+                    <div style={{display:'flex', gap:'5px'}}>
+                      <button className="btn-back" style={{fontSize:'0.7rem', padding:'0.4rem 0.8rem'}} onClick={() => { setEditingCourseId(c.id); setCourseForm(c); setShowForm(true); }}>Modifier</button>
+                      <button className="btn-annuler" style={{color:'#DC2626', borderColor:'#DC2626'}} onClick={() => handleDeleteCourse(c.id)}>Supprimer</button>
+                    </div>
+                  </div>
+                )) : <p>Vous n'avez pas encore créé de cours.</p>}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

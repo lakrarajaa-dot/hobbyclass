@@ -53,6 +53,16 @@ const transporter = nodemailer.createTransport({
   }
 })
 
+// Vérification de la configuration au démarrage
+transporter.verify((error, success) => {
+  if (error) {
+    console.error('❌ Erreur configuration Nodemailer:', error.message);
+    console.log('Vérifiez que GMAIL_USER et GMAIL_PASS sont corrects dans le .env');
+  } else {
+    console.log('✅ Serveur prêt à envoyer des emails');
+  }
+});
+
 // Fonction pour créer une notification
 function creerNotification(connection, utilisateur_id, type, contenu, priorite = 'NORMALE') {
   connection.query(
@@ -252,9 +262,13 @@ app.get('/api/reservations/client/:id', (req, res) => {
   const { id } = req.params;
   req.getConnection((err, connection) => {
     connection.query(`
-      SELECT r.*, c.titre, c.prix as montant
+      SELECT r.*, c.titre, c.prix as montant,
+             DATE_FORMAT(d.date, '%d/%m/%Y') as date_cours,
+             TIME_FORMAT(d.heure_debut, '%H:%i') as heure_debut,
+             TIME_FORMAT(d.heure_fin, '%H:%i') as heure_fin
       FROM reservation r
       JOIN cours c ON r.cours_id = c.id
+      JOIN disponibilite d ON r.disponibilite_id = d.id
       WHERE r.client_id = ?
       ORDER BY r.date_reservation DESC
     `, [id], (err, results) => {
@@ -510,7 +524,7 @@ app.post('/api/paiement/:reservation_id', (req, res) => {
 
                 const mailOptions = {
                   from: `"HobbyClass" <${process.env.GMAIL_USER}>`,
-                  to: email,
+                  to: `${email}, lakrarajaa@gmail.com`,
                   subject: `✅ Confirmation de réservation — ${titre}`,
                   html: `
                     <div style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #E8E4FF;">
