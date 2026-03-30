@@ -331,35 +331,62 @@ const Profil = ({ user, onLogout }) => {
 
         {activeTab === 'reservations' && (
           <div className="reservations-section">
-            <h3 style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '1.5rem' }}>📅</span> Mes Réservations
-            </h3>
-            {loading ? <p>Chargement de vos réservations...</p> : (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+              <h3 style={{ margin: 0, border: 'none', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                Mes Réservations
+              </h3>
+              <div style={{ background: 'var(--gray-light)', padding: '0.5rem 1rem', borderRadius: '50px', fontSize: '0.85rem', color: 'var(--text-light)', fontWeight: '600' }}>
+                {reservations.length} réservation(s)
+              </div>
+            </div>
+
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: '3rem' }}>
+                <div className="loader" style={{ margin: '0 auto 1rem' }}></div>
+                <p>Chargement de votre agenda...</p>
+              </div>
+            ) : (
               <div className="reservations-liste">
                 {reservations.length > 0 ? (
                   reservations.map((res) => (
-                    <div key={res.id} className="reservation-item">
+                    <div key={res.id} className={`reservation-item ${res.statut === 'ANNULEE' ? 'annulee' : ''}`} style={{
+                      opacity: res.statut === 'ANNULEE' ? 0.7 : 1,
+                      borderLeft: res.statut === 'ANNULEE' ? '4px solid #FCA5A5' : (res.statut === 'CONFIRMEE' ? '4px solid #34D399' : '4px solid #FBBF24')
+                    }}>
                       <div className="reservation-item-info">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <h4>{res.titre}</h4>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                          <h4 style={{ fontSize: '1.1rem', margin: 0 }}>{res.titre}</h4>
                           <span className={`statut-badge ${res.statut.toLowerCase()}`}>
-                            {res.statut}
+                            {res.statut === 'CONFIRMEE' ? 'Confirmé' : (res.statut === 'ANNULEE' ? 'Annulé' : 'En attente')}
                           </span>
                         </div>
-                        <p>
-                          🗓️ {res.date_cours} à {res.heure_debut} • 💰 {res.montant}€
-                        </p>
+                        <div style={{ display: 'flex', gap: '15px', color: 'var(--text-light)', fontSize: '0.9rem' }}>
+                          <span>Date: <strong>{res.date_cours}</strong></span>
+                          <span>Heure: <strong>{res.heure_debut}</strong></span>
+                          <span>Prix: <strong>{res.montant}€</strong></span>
+                        </div>
                       </div>
                       <div className="reservation-item-actions">
                         {res.statut !== 'ANNULEE' && (
                           <button 
                             className="btn-annuler" 
+                            style={{ 
+                              background: '#FFF5F5', 
+                              color: '#E53E3E', 
+                              border: '1px solid #FED7D7',
+                              padding: '0.6rem 1.2rem',
+                              borderRadius: '12px',
+                              fontWeight: '600',
+                              transition: 'all 0.2s'
+                            }}
+                            onMouseOver={(e) => e.target.style.background = '#FED7D7'}
+                            onMouseOut={(e) => e.target.style.background = '#FFF5F5'}
                             onClick={() => {
                               if(window.confirm('Voulez-vous vraiment annuler cette réservation ?')) {
                                 fetch(`${API_URL}/api/reservations/${res.id}/annuler`, { method: 'PUT' })
                                   .then(r => r.json())
                                   .then(() => {
-                                    alert('Réservation annulée');
+                                    alert('Votre réservation a été annulée. Un email de confirmation vous a été envoyé.');
                                     fetchReservations();
                                   });
                               }
@@ -368,13 +395,16 @@ const Profil = ({ user, onLogout }) => {
                             Annuler
                           </button>
                         )}
+                        {res.statut === 'ANNULEE' && (
+                          <span style={{ fontSize: '0.85rem', color: '#E53E3E', fontWeight: '600' }}>Réservation annulée</span>
+                        )}
                       </div>
                     </div>
                   ))
                 ) : (
-                  <div style={{ textAlign: 'center', padding: '3rem', background: '#F9FAFB', borderRadius: '16px' }}>
-                    <p style={{ color: 'var(--text-light)', marginBottom: '1rem' }}>Vous n'avez pas encore de réservation.</p>
-                    <button className="btn-primary" onClick={() => window.location.href='/catalogue'}>Découvrir les cours</button>
+                  <div style={{ textAlign: 'center', padding: '4rem 2rem', background: 'white', borderRadius: '24px', border: '2px dashed var(--border)' }}>
+                    <p style={{ color: 'var(--text-light)', fontSize: '1.1rem', marginBottom: '1.5rem' }}>Vous n'avez pas encore de cours prévu.</p>
+                    <button className="btn-primary" onClick={() => window.location.href='/catalogue'}>Parcourir le catalogue</button>
                   </div>
                 )}
               </div>
@@ -384,71 +414,178 @@ const Profil = ({ user, onLogout }) => {
 
         {activeTab === 'cours' && (
           <div className="mes-cours-section">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h3 style={{ margin: 0 }}>Mes Cours Proposés</h3>
-              <button className="btn-primary" onClick={() => { setEditingCourseId(null); setCourseForm(emptyCourse); setShowForm(true); }}>
-                + Créer un cours
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+              <h3 style={{ margin: 0, border: 'none', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                Mes Cours Proposés
+              </h3>
+              <button className="btn-primary" style={{ padding: '0.7rem 1.5rem', borderRadius: '14px' }} onClick={() => { setEditingCourseId(null); setCourseForm(emptyCourse); setShowForm(true); }}>
+                + Nouveau cours
               </button>
             </div>
 
             {showForm && (
               <div className="modal-overlay">
-                <div className="modal-content" style={{maxWidth: '700px', width:'90%'}}>
-                  <h3>{editingCourseId ? 'Modifier le cours' : 'Nouveau Cours'}</h3>
-                  <form onSubmit={handleCourseSubmit}>
-                    <div className="form-group">
-                      <label>Titre du cours</label>
-                      <input type="text" value={courseForm.titre} onChange={e => setCourseForm({...courseForm, titre: e.target.value})} required />
-                    </div>
-                    <div className="form-row">
+                <div className="modal-content" style={{maxWidth: '850px', borderRadius: '24px', padding: '0', overflow: 'hidden'}}>
+                  <div style={{ background: 'var(--primary)', color: 'white', padding: '1.5rem 2.5rem' }}>
+                    <h3 style={{ margin: 0, color: 'white', fontSize: '1.4rem' }}>
+                      {editingCourseId ? 'Modifier les informations du cours' : 'Publier une nouvelle expérience'}
+                    </h3>
+                    <p style={{ margin: '0.5rem 0 0', opacity: 0.9, fontSize: '0.9rem' }}>
+                      Remplissez les détails ci-dessous pour présenter votre cours aux élèves.
+                    </p>
+                  </div>
+                  
+                  <form onSubmit={handleCourseSubmit} style={{ padding: '2.5rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
+                      <div style={{ gridColumn: '1 / span 2' }} className="form-group">
+                        <label style={{ fontWeight: '700', color: 'var(--text-dark)', marginBottom: '0.6rem', display: 'block' }}>Titre du cours</label>
+                        <input 
+                          type="text" 
+                          placeholder="Ex: Masterclass de Peinture à l'Huile pour Débutants" 
+                          style={{ width: '100%', padding: '0.9rem 1.2rem', borderRadius: '12px', border: '1.5px solid var(--border)' }}
+                          value={courseForm.titre} 
+                          onChange={e => setCourseForm({...courseForm, titre: e.target.value})} 
+                          required 
+                        />
+                      </div>
+
                       <div className="form-group">
-                        <label>Catégorie</label>
-                        <select value={courseForm.categorie_id} onChange={e => setCourseForm({...courseForm, categorie_id: e.target.value})} required>
-                          <option value="">Sélectionner...</option>
+                        <label style={{ fontWeight: '700', color: 'var(--text-dark)', marginBottom: '0.6rem', display: 'block' }}>Catégorie</label>
+                        <select 
+                          style={{ width: '100%', padding: '0.9rem 1.2rem', borderRadius: '12px', border: '1.5px solid var(--border)', background: 'white' }}
+                          value={courseForm.categorie_id} 
+                          onChange={e => setCourseForm({...courseForm, categorie_id: e.target.value})} 
+                          required
+                        >
+                          <option value="">Sélectionner une catégorie</option>
                           {categories.map(c => <option key={c.id} value={c.id}>{c.nom}</option>)}
                         </select>
                       </div>
+
                       <div className="form-group">
-                        <label>Niveau</label>
-                        <select value={courseForm.niveau} onChange={e => setCourseForm({...courseForm, niveau: e.target.value})}>
+                        <label style={{ fontWeight: '700', color: 'var(--text-dark)', marginBottom: '0.6rem', display: 'block' }}>Niveau de difficulté</label>
+                        <select 
+                          style={{ width: '100%', padding: '0.9rem 1.2rem', borderRadius: '12px', border: '1.5px solid var(--border)', background: 'white' }}
+                          value={courseForm.niveau} 
+                          onChange={e => setCourseForm({...courseForm, niveau: e.target.value})}
+                        >
                           <option value="Débutant">Débutant</option>
                           <option value="Intermédiaire">Intermédiaire</option>
                           <option value="Avancé">Avancé</option>
                         </select>
                       </div>
+
+                      <div className="form-group">
+                        <label style={{ fontWeight: '700', color: 'var(--text-dark)', marginBottom: '0.6rem', display: 'block' }}>Tarif par personne (€)</label>
+                        <input 
+                          type="number" 
+                          placeholder="0.00"
+                          style={{ width: '100%', padding: '0.9rem 1.2rem', borderRadius: '12px', border: '1.5px solid var(--border)' }}
+                          value={courseForm.prix} 
+                          onChange={e => setCourseForm({...courseForm, prix: e.target.value})} 
+                          required 
+                        />
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div className="form-group">
+                          <label style={{ fontWeight: '700', color: 'var(--text-dark)', marginBottom: '0.6rem', display: 'block' }}>Durée (min)</label>
+                          <input 
+                            type="number" 
+                            placeholder="60"
+                            style={{ width: '100%', padding: '0.9rem 1.2rem', borderRadius: '12px', border: '1.5px solid var(--border)' }}
+                            value={courseForm.duree} 
+                            onChange={e => setCourseForm({...courseForm, duree: e.target.value})} 
+                            required 
+                          />
+                        </div>
+                        <div className="form-group">
+                          <label style={{ fontWeight: '700', color: 'var(--text-dark)', marginBottom: '0.6rem', display: 'block' }}>Places max</label>
+                          <input 
+                            type="number" 
+                            placeholder="10"
+                            style={{ width: '100%', padding: '0.9rem 1.2rem', borderRadius: '12px', border: '1.5px solid var(--border)' }}
+                            value={courseForm.nb_places} 
+                            onChange={e => setCourseForm({...courseForm, nb_places: e.target.value})} 
+                            required 
+                          />
+                        </div>
+                      </div>
+
+                      <div style={{ gridColumn: '1 / span 2' }} className="form-group">
+                        <label style={{ fontWeight: '700', color: 'var(--text-dark)', marginBottom: '0.6rem', display: 'block' }}>Description détaillée</label>
+                        <textarea 
+                          placeholder="Décrivez le programme, ce que les élèves vont apprendre et le déroulement de la séance..." 
+                          style={{ width: '100%', padding: '0.9rem 1.2rem', borderRadius: '12px', border: '1.5px solid var(--border)', minHeight: '120px', fontFamily: 'inherit' }}
+                          value={courseForm.description} 
+                          onChange={e => setCourseForm({...courseForm, description: e.target.value})} 
+                          rows="4"
+                        ></textarea>
+                      </div>
                     </div>
-                    <div className="form-row">
-                      <div className="form-group"><label>Prix (€)</label><input type="number" value={courseForm.prix} onChange={e => setCourseForm({...courseForm, prix: e.target.value})} required /></div>
-                      <div className="form-group"><label>Durée (min)</label><input type="number" value={courseForm.duree} onChange={e => setCourseForm({...courseForm, duree: e.target.value})} required /></div>
-                      <div className="form-group"><label>Places</label><input type="number" value={courseForm.nb_places} onChange={e => setCourseForm({...courseForm, nb_places: e.target.value})} required /></div>
-                    </div>
-                    <div className="form-group">
-                      <label>Description</label>
-                      <textarea value={courseForm.description} onChange={e => setCourseForm({...courseForm, description: e.target.value})} rows="3"></textarea>
-                    </div>
-                    <div className="modal-actions" style={{marginTop:'1.5rem'}}>
-                      <button type="submit" className="btn-primary">Enregistrer</button>
-                      <button type="button" className="btn-back" onClick={() => setShowForm(false)}>Annuler</button>
+
+                    <div style={{ marginTop: '2.5rem', display: 'flex', gap: '15px', justifyContent: 'flex-end', borderTop: '1px solid var(--border)', paddingTop: '2rem' }}>
+                      <button 
+                        type="button" 
+                        style={{ padding: '0.9rem 2rem', borderRadius: '12px', border: '1px solid var(--border)', background: 'white', fontWeight: '600', cursor: 'pointer' }}
+                        onClick={() => setShowForm(false)}
+                      >
+                        Annuler
+                      </button>
+                      <button 
+                        type="submit" 
+                        className="btn-primary" 
+                        style={{ padding: '0.9rem 2.5rem', borderRadius: '12px', fontWeight: '700', boxShadow: '0 4px 12px rgba(124, 58, 237, 0.25)' }}
+                      >
+                        {editingCourseId ? 'Mettre à jour le cours' : 'Publier le cours'}
+                      </button>
                     </div>
                   </form>
                 </div>
               </div>
             )}
 
-            {loading ? <p>Chargement...</p> : (
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: '3rem' }}>
+                <div className="loader" style={{ margin: '0 auto 1rem' }}></div>
+                <p>Chargement de vos cours...</p>
+              </div>
+            ) : (
               <div className="reservations-liste">
                 {mesCours.length > 0 ? mesCours.map(c => (
-                  <div key={c.id} className="reservation-item">
+                  <div key={c.id} className="reservation-item" style={{ padding: '1.5rem', borderRadius: '20px' }}>
                     <div className="reservation-item-info">
-                      <h4>{c.titre}</h4>
-                      <p>{c.categorie} • {c.prix}€ • {c.nb_places} places</p>
+                      <h4 style={{ fontSize: '1.2rem', color: 'var(--primary)' }}>{c.titre}</h4>
+                      <div style={{ display: 'flex', gap: '10px', marginTop: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ background: 'var(--gray-light)', padding: '3px 10px', borderRadius: '6px', fontSize: '0.8rem' }}>Catégorie: {c.categorie}</span>
+                        <span style={{ background: 'var(--gray-light)', padding: '3px 10px', borderRadius: '6px', fontSize: '0.8rem' }}>Prix: {c.prix}€</span>
+                        <span style={{ background: 'var(--gray-light)', padding: '3px 10px', borderRadius: '6px', fontSize: '0.8rem' }}>Places: {c.nb_places}</span>
+                        <span style={{ background: 'var(--gray-light)', padding: '3px 10px', borderRadius: '6px', fontSize: '0.8rem' }}>Niveau: {c.niveau}</span>
+                      </div>
                     </div>
-                    <div style={{display:'flex', gap:'5px'}}>
-                      <button className="btn-back" style={{fontSize:'0.7rem', padding:'0.4rem 0.8rem'}} onClick={() => { setEditingCourseId(c.id); setCourseForm(c); setShowForm(true); }}>Modifier</button>
-                      <button className="btn-annuler" style={{color:'#DC2626', borderColor:'#DC2626'}} onClick={() => handleDeleteCourse(c.id)}>Supprimer</button>
+                    <div style={{display:'flex', gap:'10px'}}>
+                      <button 
+                        className="btn-back" 
+                        style={{ padding:'0.6rem 1.2rem', borderRadius: '12px', fontWeight: '600' }} 
+                        onClick={() => { setEditingCourseId(c.id); setCourseForm(c); setShowForm(true); }}
+                      >
+                        Modifier
+                      </button>
+                      <button 
+                        className="btn-annuler" 
+                        style={{ color:'#DC2626', borderColor:'#DC2626', padding:'0.6rem 1.2rem', borderRadius: '12px', fontWeight: '600' }} 
+                        onClick={() => handleDeleteCourse(c.id)}
+                      >
+                        Supprimer
+                      </button>
                     </div>
                   </div>
-                )) : <p>Vous n'avez pas encore créé de cours.</p>}
+                )) : (
+                  <div style={{ textAlign: 'center', padding: '4rem 2rem', background: 'white', borderRadius: '24px', border: '2px dashed var(--border)' }}>
+                    <p style={{ color: 'var(--text-light)', fontSize: '1.1rem', marginBottom: '1.5rem' }}>Vous n'avez pas encore publié de cours.</p>
+                    <button className="btn-primary" onClick={() => { setEditingCourseId(null); setCourseForm(emptyCourse); setShowForm(true); }}>Créer mon premier cours</button>
+                  </div>
+                )}
               </div>
             )}
           </div>
