@@ -18,12 +18,29 @@ app.use(cors({
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-const dbConfig = {
+const url = require('url');
+let dbConfig = {
   host: process.env.MYSQLHOST,
   user: process.env.MYSQLUSER,
   password: process.env.MYSQLPASSWORD,
   database: process.env.MYSQLDATABASE,
-  port: parseInt(process.env.MYSQLPORT)
+  port: parseInt(process.env.MYSQLPORT) || 3306
+};
+
+if (process.env.MYSQL_URL) {
+  try {
+    const dbUrl = url.parse(process.env.MYSQL_URL);
+    if (dbUrl.auth) {
+      const [user, password] = dbUrl.auth.split(':');
+      dbConfig.user = user;
+      dbConfig.password = password;
+    }
+    dbConfig.host = dbUrl.hostname;
+    dbConfig.port = dbUrl.port;
+    dbConfig.database = dbUrl.pathname.substring(1);
+  } catch (e) {
+    console.error("Erreur parsing MYSQL_URL:", e.message);
+  }
 }
 
 app.use(myconnection(mysql, dbConfig, 'pool'))
@@ -36,6 +53,7 @@ const transporter = nodemailer.createTransport({
   }
 })
 
+// Fonction pour créer une notification
 function creerNotification(connection, utilisateur_id, type, contenu, priorite = 'NORMALE') {
   connection.query(
     'INSERT INTO notification (utilisateur_id, type, contenu, priorite) VALUES (?, ?, ?, ?)',
@@ -43,6 +61,9 @@ function creerNotification(connection, utilisateur_id, type, contenu, priorite =
   )
 }
 
+// ===== NOTIFICATIONS =====
+
+// GET toutes les notifications d'un utilisateur
 app.get('/api/notifications/:utilisateur_id', (req, res) => {
   const { utilisateur_id } = req.params
   req.getConnection((err, connection) => {
@@ -57,6 +78,7 @@ app.get('/api/notifications/:utilisateur_id', (req, res) => {
   })
 })
 
+// GET nombre de notifications non lues
 app.get('/api/notifications/:utilisateur_id/non-lues', (req, res) => {
   const { utilisateur_id } = req.params
   req.getConnection((err, connection) => {
@@ -71,6 +93,7 @@ app.get('/api/notifications/:utilisateur_id/non-lues', (req, res) => {
   })
 })
 
+// PUT marquer toutes comme lues
 app.put('/api/notifications/:utilisateur_id/lire', (req, res) => {
   const { utilisateur_id } = req.params
   req.getConnection((err, connection) => {
@@ -85,6 +108,7 @@ app.put('/api/notifications/:utilisateur_id/lire', (req, res) => {
   })
 })
 
+// GET tous les cours
 app.get('/api/cours', (req, res) => {
   req.getConnection((err, connection) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -103,6 +127,7 @@ app.get('/api/cours', (req, res) => {
   });
 });
 
+// GET cours par ID
 app.get('/api/cours/:id', (req, res) => {
   const { id } = req.params
   req.getConnection((err, connection) => {
@@ -119,6 +144,7 @@ app.get('/api/cours/:id', (req, res) => {
   })
 })
 
+// GET disponibilités d'un cours
 app.get('/api/cours/:id/disponibilites', (req, res) => {
   const { id } = req.params
   req.getConnection((err, connection) => {
@@ -138,6 +164,7 @@ app.get('/api/cours/:id/disponibilites', (req, res) => {
   })
 })
 
+// GET cours d'un formateur
 app.get('/api/cours/formateur/:id', (req, res) => {
   const { id } = req.params;
   req.getConnection((err, connection) => {
@@ -154,6 +181,7 @@ app.get('/api/cours/formateur/:id', (req, res) => {
   });
 });
 
+// POST login
 app.post('/api/auth/login', (req, res) => {
   const { email, mot_de_passe } = req.body
   req.getConnection((err, connection) => {
@@ -184,6 +212,42 @@ app.post('/api/auth/login', (req, res) => {
   })
 })
 
+// POST register
+app.post('/api/auth/register', (req, res) => {
+  const { nom, prenom, email, mot_de_passe, telephone, role } = req.body
+  const userRole = role || 'CLIENT' // Par défaut CLIENT si non précisé
+
+  req.getConnection((err, connection) => {
+    if (err) return res.status(500).json({ error: 'Erreur DB' })
+
+    // Vérifier si l'email existe déjà
+    connection.query('SELECT id FROM utilisateur WHERE email = ?', [email], (err, results) => {
+      if (err) return res.status(500).json({ error: 'Erreur lors de la vérification' })
+      if (results.length > 0) {
+        return res.status(400).json({ error: 'Cet email est déjà utilisé' })
+      }
+
+      // Insérer le nouvel utilisateur
+      const query = 'INSERT INTO utilisateur (nom, prenom, email, mot_de_passe, telephone, role) VALUES (?, ?, ?, ?, ?, ?)'
+      connection.query(query, [nom, prenom, email, mot_de_passe, telephone, userRole], (err, result) => {
+        if (err) return res.status(500).json({ error: err.message })
+
+        res.json({
+          message: 'Inscription réussie',
+          user: {
+            id: result.insertId,
+            nom,
+            prenom,
+            email,
+            role: userRole
+          }
+        })
+      })
+    })
+  })
+})
+
+// GET réservations d'un client
 app.get('/api/reservations/client/:id', (req, res) => {
   const { id } = req.params;
   req.getConnection((err, connection) => {
@@ -200,6 +264,7 @@ app.get('/api/reservations/client/:id', (req, res) => {
   });
 });
 
+// GET utilisateur par ID
 app.get('/api/utilisateurs/:id', (req, res) => {
   const { id } = req.params;
   req.getConnection((err, connection) => {
@@ -214,13 +279,17 @@ app.get('/api/utilisateurs/:id', (req, res) => {
   });
 });
 
+// PUT modifier infos utilisateur
 app.put('/api/utilisateurs/:id', (req, res) => {
   const { id } = req.params;
-  const { nom, prenom, telephone } = req.body;
+  const { nom, prenom, telephone, biographie, specialites, niveau } = req.body;
   req.getConnection((err, connection) => {
+    if (err) return res.status(500).json({ error: 'Erreur DB' });
+    
+    const query = 'UPDATE utilisateur SET nom=?, prenom=?, telephone=?, biographie=?, specialites=?, niveau=? WHERE id=?';
     connection.query(
-      'UPDATE utilisateur SET nom=?, prenom=?, telephone=? WHERE id=?',
-      [nom, prenom, telephone, id],
+      query,
+      [nom, prenom, telephone, biographie, specialites, niveau, id],
       (err) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ message: 'Profil mis à jour' });
@@ -229,6 +298,7 @@ app.put('/api/utilisateurs/:id', (req, res) => {
   });
 });
 
+// PUT modifier mot de passe
 app.put('/api/utilisateurs/:id/password', (req, res) => {
   const { id } = req.params;
   const { ancien_mdp, nouveau_mdp } = req.body;
@@ -253,6 +323,7 @@ app.put('/api/utilisateurs/:id/password', (req, res) => {
   });
 });
 
+// PUT annuler réservation
 app.put('/api/reservations/:id/annuler', (req, res) => {
   const { id } = req.params;
   req.getConnection((err, connection) => {
@@ -261,11 +332,13 @@ app.put('/api/reservations/:id/annuler', (req, res) => {
       [id],
       (err) => {
         if (err) return res.status(500).json({ error: err.message });
+
         connection.query(
           'UPDATE disponibilite SET places_disponibles = places_disponibles + 1 WHERE id = (SELECT disponibilite_id FROM reservation WHERE id = ?)',
           [id],
           (err2) => {
             if (err2) return res.status(500).json({ error: err2.message });
+
             connection.query(`
               SELECT u.email, u.prenom, u.nom, u.id as client_id,
                      c.titre,
@@ -277,21 +350,66 @@ app.put('/api/reservations/:id/annuler', (req, res) => {
               JOIN disponibilite d ON r.disponibilite_id = d.id
               WHERE r.id = ?
             `, [id], (err3, results) => {
+
               if (!err3 && results.length) {
                 const { email, prenom, nom, client_id, titre, date, heure_debut } = results[0]
-                creerNotification(connection, client_id, 'ANNULATION',
-                  `Votre réservation pour le cours "${titre}" du ${date} à ${heure_debut} a été annulée.`, 'HAUTE')
+
+                creerNotification(
+                  connection,
+                  client_id,
+                  'ANNULATION',
+                  `Votre réservation pour le cours "${titre}" du ${date} à ${heure_debut} a été annulée.`,
+                  'HAUTE'
+                )
+
                 const mailOptions = {
                   from: `"HobbyClass" <${process.env.GMAIL_USER}>`,
                   to: email,
                   subject: `Annulation de votre réservation — ${titre}`,
-                  html: `<p>Bonjour ${prenom} ${nom}, votre réservation pour le cours "${titre}" du ${date} à ${heure_debut} a été annulée.</p>`
+                  html: `
+                    <div style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #E8E4FF;">
+                      <div style="background: #7C3AED; padding: 2rem; text-align: center;">
+                        <h1 style="color: white; margin: 0; font-size: 1.8rem; font-weight: 800;">Hobby<span style="font-weight: 300;">Class</span></h1>
+                        <p style="color: rgba(255,255,255,0.8); margin: 0.5rem 0 0;">Annulation de réservation</p>
+                      </div>
+                      <div style="padding: 2rem;">
+                        <p style="color: #1E1B4B;">Bonjour <strong>${prenom} ${nom}</strong>,</p>
+                        <p style="color: #64748B;">Votre réservation a bien été annulée. Voici le récapitulatif :</p>
+                        <div style="background: #FEF2F2; border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0; border: 1px solid #FECACA;">
+                          <table style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                              <td style="padding: 0.5rem 0; color: #94A3B8; font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Cours</td>
+                              <td style="padding: 0.5rem 0; color: #1E1B4B; font-weight: 700; text-align: right;">${titre}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 0.5rem 0; color: #94A3B8; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; border-top: 1px solid #FECACA;">Date</td>
+                              <td style="padding: 0.5rem 0; color: #1E1B4B; font-weight: 600; text-align: right; border-top: 1px solid #FECACA;">${date}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 0.5rem 0; color: #94A3B8; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; border-top: 1px solid #FECACA;">Heure</td>
+                              <td style="padding: 0.5rem 0; color: #DC2626; font-weight: 800; font-size: 1.1rem; text-align: right; border-top: 1px solid #FECACA;">${heure_debut}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 0.5rem 0; color: #94A3B8; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; border-top: 1px solid #FECACA;">Statut</td>
+                              <td style="padding: 0.5rem 0; color: #DC2626; font-weight: 800; text-align: right; border-top: 1px solid #FECACA;">Annulée</td>
+                            </tr>
+                          </table>
+                        </div>
+                        <p style="color: #64748B; font-size: 0.9rem;">Vous pouvez réserver un autre cours à tout moment sur HobbyClass.</p>
+                      </div>
+                      <div style="background: #F8F7FF; padding: 1.2rem 2rem; text-align: center; border-top: 1px solid #E8E4FF;">
+                        <p style="color: #94A3B8; font-size: 0.8rem; margin: 0;">© 2026 HobbyClass — Tous droits réservés</p>
+                      </div>
+                    </div>
+                  `
                 }
+
                 transporter.sendMail(mailOptions, (errMail) => {
                   if (errMail) console.log('❌ Erreur email annulation:', errMail.message)
                   else console.log('✅ Email annulation envoyé à', email)
                 })
               }
+
               res.json({ message: 'Réservation annulée' });
             })
           }
@@ -301,6 +419,7 @@ app.put('/api/reservations/:id/annuler', (req, res) => {
   });
 });
 
+// POST créer réservation
 app.post('/api/reservations', (req, res) => {
   const { client_id, cours_id, disponibilite_id } = req.body
   req.getConnection((err, connection) => {
@@ -311,7 +430,9 @@ app.post('/api/reservations', (req, res) => {
         [disponibilite_id],
         (err, results) => {
           if (err || !results.length || results[0].places_disponibles < 1) {
-            return connection.rollback(() => res.status(400).json({ error: 'Aucune place disponible' }))
+            return connection.rollback(() => {
+              res.status(400).json({ error: 'Aucune place disponible' })
+            })
           }
           connection.query(
             'INSERT INTO reservation (client_id, cours_id, disponibilite_id, statut) VALUES (?, ?, ?, "EN_ATTENTE")',
@@ -327,7 +448,12 @@ app.post('/api/reservations', (req, res) => {
                     if (err2) {
                       connection.rollback(() => res.status(500).json({ error: err2.message }))
                     } else {
-                      connection.commit(() => res.json({ message: 'Réservation créée', reservation_id: result.insertId }))
+                      connection.commit(() => {
+                        res.json({
+                          message: 'Réservation créée',
+                          reservation_id: result.insertId
+                        })
+                      })
                     }
                   }
                 )
@@ -340,20 +466,24 @@ app.post('/api/reservations', (req, res) => {
   })
 })
 
+// POST paiement
 app.post('/api/paiement/:reservation_id', (req, res) => {
   const { reservation_id } = req.params
   const { montant, mode_paiement } = req.body
+
   req.getConnection((err, connection) => {
     connection.query(
       'INSERT INTO paiement (reservation_id, montant, mode_paiement, statut) VALUES (?, ?, ?, "SUCCES")',
       [reservation_id, montant, mode_paiement],
       err => {
         if (err) return res.status(500).json({ error: 'Erreur paiement' })
+
         connection.query(
           'UPDATE reservation SET statut = "CONFIRMEE" WHERE id = ?',
           [reservation_id],
           err2 => {
             if (err2) return res.status(500).json({ error: err2.message })
+
             connection.query(`
               SELECT u.email, u.prenom, u.nom, u.id as client_id,
                      c.titre, c.prix,
@@ -366,21 +496,66 @@ app.post('/api/paiement/:reservation_id', (req, res) => {
               JOIN disponibilite d ON r.disponibilite_id = d.id
               WHERE r.id = ?
             `, [reservation_id], (err3, results) => {
+
               if (!err3 && results.length) {
                 const { email, prenom, nom, client_id, titre, prix, date, heure_debut, heure_fin } = results[0]
-                creerNotification(connection, client_id, 'CONFIRMATION',
-                  `✅ Réservation confirmée ! Votre cours "${titre}" est prévu le ${date} à ${heure_debut}. Montant payé : ${prix}€`, 'HAUTE')
+
+                creerNotification(
+                  connection,
+                  client_id,
+                  'CONFIRMATION',
+                  `✅ Réservation confirmée ! Votre cours "${titre}" est prévu le ${date} à ${heure_debut}. Montant payé : ${prix}€`,
+                  'HAUTE'
+                )
+
                 const mailOptions = {
                   from: `"HobbyClass" <${process.env.GMAIL_USER}>`,
                   to: email,
                   subject: `✅ Confirmation de réservation — ${titre}`,
-                  html: `<p>Bonjour ${prenom} ${nom}, votre réservation pour "${titre}" le ${date} de ${heure_debut} à ${heure_fin} est confirmée. Montant payé : ${prix}€</p>`
+                  html: `
+                    <div style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #E8E4FF;">
+                      <div style="background: #7C3AED; padding: 2rem; text-align: center;">
+                        <h1 style="color: white; margin: 0; font-size: 1.8rem; font-weight: 800;">Hobby<span style="font-weight: 300;">Class</span></h1>
+                        <p style="color: rgba(255,255,255,0.8); margin: 0.5rem 0 0;">Votre réservation est confirmée</p>
+                      </div>
+                      <div style="padding: 2rem;">
+                        <p style="color: #1E1B4B;">Bonjour <strong>${prenom} ${nom}</strong>,</p>
+                        <p style="color: #64748B;">Votre réservation a bien été enregistrée. Voici le récapitulatif :</p>
+                        <div style="background: #F5F3FF; border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                          <table style="width: 100%; border-collapse: collapse;">
+                            <tr>
+                              <td style="padding: 0.5rem 0; color: #94A3B8; font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Cours</td>
+                              <td style="padding: 0.5rem 0; color: #1E1B4B; font-weight: 700; text-align: right;">${titre}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 0.5rem 0; color: #94A3B8; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; border-top: 1px solid #E8E4FF;">Date</td>
+                              <td style="padding: 0.5rem 0; color: #1E1B4B; font-weight: 600; text-align: right; border-top: 1px solid #E8E4FF;">${date}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 0.5rem 0; color: #94A3B8; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; border-top: 1px solid #E8E4FF;">Horaire</td>
+                              <td style="padding: 0.5rem 0; color: #1E1B4B; font-weight: 600; text-align: right; border-top: 1px solid #E8E4FF;">${heure_debut} – ${heure_fin}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 0.5rem 0; color: #94A3B8; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; border-top: 1px solid #E8E4FF;">Montant payé</td>
+                              <td style="padding: 0.5rem 0; color: #7C3AED; font-weight: 800; font-size: 1.1rem; text-align: right; border-top: 1px solid #E8E4FF;">${prix}€</td>
+                            </tr>
+                          </table>
+                        </div>
+                        <p style="color: #64748B; font-size: 0.9rem;">Des questions ? Contactez-nous à <a href="mailto:contact@hobbyclass.fr" style="color: #7C3AED;">contact@hobbyclass.fr</a></p>
+                      </div>
+                      <div style="background: #F8F7FF; padding: 1.2rem 2rem; text-align: center; border-top: 1px solid #E8E4FF;">
+                        <p style="color: #94A3B8; font-size: 0.8rem; margin: 0;">© 2026 HobbyClass — Tous droits réservés</p>
+                      </div>
+                    </div>
+                  `
                 }
+
                 transporter.sendMail(mailOptions, (errMail) => {
                   if (errMail) console.log('❌ Erreur email:', errMail.message)
                   else console.log('✅ Email envoyé à', email)
                 })
               }
+
               res.json({ message: 'Paiement réussi, réservation confirmée' })
             })
           }
@@ -390,14 +565,175 @@ app.post('/api/paiement/:reservation_id', (req, res) => {
   })
 })
 
+// GET toutes les catégories
+app.get('/api/categories', (req, res) => {
+  req.getConnection((err, connection) => {
+    if (err) return res.status(500).json({ error: err.message });
+    connection.query('SELECT * FROM categorie ORDER BY nom', (err, results) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(results);
+    });
+  });
+});
+
+// POST créer un cours
+app.post('/api/cours', (req, res) => {
+  const {
+    titre, description, niveau, duree, nb_places, prix,
+    materiel_necessaire, photos, videos, date_cours,
+    heure_debut, heure_fin, categorie_id, formateur_id
+  } = req.body;
+
+  req.getConnection((err, connection) => {
+    if (err) return res.status(500).json({ error: err.message });
+    
+    const query = `
+      INSERT INTO cours 
+      (titre, description, niveau, duree, nb_places, prix, materiel_necessaire, photos, videos, statut, date_cours, heure_debut, heure_fin, categorie_id, formateur_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIF', ?, ?, ?, ?, ?)
+    `;
+    
+    const values = [
+      titre, description, niveau, duree, nb_places, prix,
+      materiel_necessaire, photos, videos, date_cours,
+      heure_debut, heure_fin, categorie_id, formateur_id
+    ];
+
+    connection.query(query, values, (err, result) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ message: 'Cours créé avec succès', id: result.insertId });
+    });
+  });
+});
+
+// PUT changer statut cours
+app.put('/api/cours/:id/statut', (req, res) => {
+  const { id } = req.params;
+  const { statut } = req.body; // 'ACTIF' ou 'INACTIF'
+  req.getConnection((err, connection) => {
+    if (err) return res.status(500).json({ error: err.message });
+    connection.query(
+      'UPDATE cours SET statut = ? WHERE id = ?',
+      [statut, id],
+      (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ message: 'Statut mis à jour' });
+      }
+    );
+  });
+});
+
+// PUT modifier un cours
+app.put('/api/cours/:id', (req, res) => {
+  const { id } = req.params;
+  const {
+    titre, description, niveau, duree, nb_places, prix,
+    materiel_necessaire, photos, videos, date_cours,
+    heure_debut, heure_fin, categorie_id
+  } = req.body;
+
+  req.getConnection((err, connection) => {
+    if (err) return res.status(500).json({ error: err.message });
+    
+    const query = `
+      UPDATE cours SET 
+      titre=?, description=?, niveau=?, duree=?, nb_places=?, prix=?, 
+      materiel_necessaire=?, photos=?, videos=?, date_cours=?, 
+      heure_debut=?, heure_fin=?, categorie_id=?
+      WHERE id=?
+    `;
+    
+    const values = [
+      titre, description, niveau, duree, nb_places, prix,
+      materiel_necessaire, photos, videos, date_cours,
+      heure_debut, heure_fin, categorie_id, id
+    ];
+
+    connection.query(query, values, (err) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ message: 'Cours modifié avec succès' });
+    });
+  });
+});
+
+// ===== ADMINISTRATION =====
+
+// GET tous les utilisateurs (Clients et Formateurs)
+app.get('/api/admin/utilisateurs', (req, res) => {
+  console.log("🔍 Admin: Requête liste utilisateurs reçue");
+  req.getConnection((err, connection) => {
+    if (err) {
+      console.error("❌ Erreur de connexion DB:", err);
+      return res.status(500).json({ error: 'Erreur DB' });
+    }
+    connection.query('SELECT * FROM utilisateur ORDER BY role, nom', (err, results) => {
+      if (err) {
+        console.error("❌ Erreur SQL:", err);
+        return res.status(500).json({ error: err.message });
+      }
+      console.log(`✅ ${results.length} utilisateurs trouvés`);
+      res.json(results);
+    });
+  });
+});
+
+// GET tous les cours avec infos formateur et catégorie
+app.get('/api/admin/cours', (req, res) => {
+  console.log("🔍 Admin: Requête liste cours reçue");
+  req.getConnection((err, connection) => {
+    if (err) return res.status(500).json({ error: 'Erreur DB' });
+    const query = `
+      SELECT c.*, cat.nom as categorie, u.prenom as formateur_prenom, u.nom as formateur_nom
+      FROM cours c
+      LEFT JOIN categorie cat ON c.categorie_id = cat.id
+      LEFT JOIN utilisateur u ON c.formateur_id = u.id
+      ORDER BY c.id DESC
+    `;
+    connection.query(query, (err, results) => {
+      if (err) {
+        console.error("❌ Erreur SQL Cours:", err);
+        return res.status(500).json({ error: err.message });
+      }
+      console.log(`✅ ${results.length} cours trouvés`);
+      res.json(results);
+    });
+  });
+});
+
+// GET toutes les catégories (déjà existant mais on le sécurise)
+app.get('/api/categories', (req, res) => {
+  req.getConnection((err, connection) => {
+    if (err) return res.status(500).json({ error: 'Erreur DB' });
+    connection.query('SELECT * FROM categorie ORDER BY nom', (err, results) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(results);
+    });
+  });
+});
+
+// DELETE un cours
+app.delete('/api/cours/:id', (req, res) => {
+  const { id } = req.params;
+  req.getConnection((err, connection) => {
+    if (err) return res.status(500).json({ error: err.message });
+    connection.query('DELETE FROM cours WHERE id = ?', [id], (err) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ message: 'Cours supprimé' });
+    });
+  });
+});
+
 app.get('/api/health', (req, res) => {
   res.json('Welcome to HobbyClass')
 })
 
+// ===== RAPPELS AUTOMATIQUES 24H AVANT LE COURS =====
 cron.schedule('0 9 * * *', () => {
   console.log('🔔 Vérification des rappels de cours...')
+
   const connCron = mysql.createConnection(dbConfig)
   connCron.connect()
+
   connCron.query(`
     SELECT r.client_id, u.email, u.prenom, u.nom, c.titre,
            DATE_FORMAT(d.date, '%d/%m/%Y') as date,
@@ -410,22 +746,63 @@ cron.schedule('0 9 * * *', () => {
     AND DATE(d.date) = DATE_ADD(CURDATE(), INTERVAL 1 DAY)
   `, (err, results) => {
     if (err) { console.log('❌ Erreur cron:', err.message); return }
+
     results.forEach(({ client_id, email, prenom, nom, titre, date, heure_debut }) => {
+
       connCron.query(
         'INSERT INTO notification (utilisateur_id, type, contenu, priorite) VALUES (?, ?, ?, ?)',
-        [client_id, 'RAPPEL', `🔔 Rappel : votre cours "${titre}" a lieu demain le ${date} à ${heure_debut}. N'oubliez pas !`, 'HAUTE']
+        [
+          client_id,
+          'RAPPEL',
+          `🔔 Rappel : votre cours "${titre}" a lieu demain le ${date} à ${heure_debut}. N'oubliez pas !`,
+          'HAUTE'
+        ]
       )
+
       const mailRappel = {
         from: `"HobbyClass" <${process.env.GMAIL_USER}>`,
         to: email,
         subject: `🔔 Rappel — Votre cours "${titre}" est demain !`,
-        html: `<p>Bonjour ${prenom} ${nom}, rappel pour votre cours "${titre}" demain le ${date} à ${heure_debut}. À demain ! 😊</p>`
+        html: `
+          <div style="font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #E8E4FF;">
+            <div style="background: #7C3AED; padding: 2rem; text-align: center;">
+              <h1 style="color: white; margin: 0; font-size: 1.8rem; font-weight: 800;">Hobby<span style="font-weight: 300;">Class</span></h1>
+              <p style="color: rgba(255,255,255,0.8); margin: 0.5rem 0 0;">Votre cours est demain</p>
+            </div>
+            <div style="padding: 2rem;">
+              <p style="color: #1E1B4B;">Bonjour <strong>${prenom} ${nom}</strong>,</p>
+              <p style="color: #64748B;">C'est un rappel pour votre cours de demain :</p>
+              <div style="background: #F5F3FF; border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td style="padding: 0.5rem 0; color: #94A3B8; font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">Cours</td>
+                    <td style="padding: 0.5rem 0; color: #1E1B4B; font-weight: 700; text-align: right;">${titre}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 0.5rem 0; color: #94A3B8; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; border-top: 1px solid #E8E4FF;">Date</td>
+                    <td style="padding: 0.5rem 0; color: #1E1B4B; font-weight: 600; text-align: right; border-top: 1px solid #E8E4FF;">${date}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 0.5rem 0; color: #94A3B8; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; border-top: 1px solid #E8E4FF;">Heure</td>
+                    <td style="padding: 0.5rem 0; color: #7C3AED; font-weight: 800; font-size: 1.1rem; text-align: right; border-top: 1px solid #E8E4FF;">${heure_debut}</td>
+                  </tr>
+                </table>
+              </div>
+              <p style="color: #64748B; font-size: 0.9rem;">À demain ! 😊</p>
+            </div>
+            <div style="background: #F8F7FF; padding: 1.2rem 2rem; text-align: center; border-top: 1px solid #E8E4FF;">
+              <p style="color: #94A3B8; font-size: 0.8rem; margin: 0;">© 2026 HobbyClass — Tous droits réservés</p>
+            </div>
+          </div>
+        `
       }
+
       transporter.sendMail(mailRappel, (errMail) => {
         if (errMail) console.log('❌ Erreur rappel email:', errMail.message)
         else console.log('✅ Rappel envoyé à', email)
       })
     })
+
     console.log(`✅ ${results.length} rappels traités`)
     connCron.end()
   })

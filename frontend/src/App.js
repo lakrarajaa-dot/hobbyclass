@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import Catalogue from './Catalogue';
 import Login from './Login';
+import Register from './Register';
 import Reservation from './Reservation';
 import Profil from './Profil';
 import ProfilFormateur from './ProfilFormateur';
@@ -17,9 +18,13 @@ function App() {
   const [menuOuvert, setMenuOuvert] = useState(false);
 
 
-  const handleLogin = (userData) => {
-    setUser(userData);
-    setActiveSection('accueil');
+  const handleLogin = (userData, nextSection = 'accueil') => {
+    if (userData) {
+      setUser(userData);
+      setActiveSection(nextSection);
+    } else {
+      setActiveSection(nextSection);
+    }
   };
 
   const handleLogout = () => {
@@ -131,6 +136,14 @@ function App() {
 
       {/* PAGE LOGIN */}
       {activeSection === 'login' && <Login onLogin={handleLogin} />}
+
+      {/* PAGE REGISTER */}
+      {activeSection === 'register' && (
+        <Register
+          onRegisterSuccess={() => setActiveSection('login')}
+          onBackToLogin={() => setActiveSection('login')}
+        />
+      )}
 
       {/* PAGE ACCUEIL */}
       {activeSection === 'accueil' && (
@@ -281,8 +294,8 @@ function App() {
       {/* PAGE CONTACT */}
       {activeSection === 'contact' && <Contact />}
 
-      {/* FOOTER SUR TOUTES LES PAGES SAUF LOGIN */}
-      {activeSection !== 'login' && <Footer />}
+      {/* FOOTER SUR TOUTES LES PAGES SAUF LOGIN/REGISTER */}
+      {activeSection !== 'login' && activeSection !== 'register' && <Footer />}
 
     </div>
   );

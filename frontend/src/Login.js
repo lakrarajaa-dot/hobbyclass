@@ -67,6 +67,10 @@ const Login = ({ onLogin }) => {
             {loading ? 'Connexion...' : 'Se connecter'}
           </button>
         </form>
+
+        <p className="auth-switch">
+          Pas encore de compte ? <span onClick={() => onLogin(null, 'register')}>S'inscrire</span>
+        </p>
       </div>
     </div>
   );

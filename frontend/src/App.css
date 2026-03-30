@@ -965,6 +965,70 @@ body {
   text-align: left;
 }
 
+.role-selector {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  justify-content: center;
+}
+
+.role-option {
+  flex: 1;
+  padding: 1rem;
+  background: var(--gray-light);
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+}
+
+.role-option:hover {
+  border-color: var(--violet-light);
+  background: var(--violet-pale);
+}
+
+.role-option.active {
+  background: var(--violet);
+  border-color: var(--violet);
+  color: white;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+}
+
+.role-icon {
+  font-size: 1.5rem;
+}
+
+.role-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.role-option.active .role-label {
+  color: white;
+}
+
+.auth-switch {
+  margin-top: 1.5rem;
+  font-size: 0.9rem;
+  color: var(--gray-dark);
+}
+
+.auth-switch span {
+  color: var(--violet);
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.auth-switch span:hover {
+  color: var(--violet-dark);
+  text-decoration: underline;
+}
+
 /* ===== RESERVATION ===== */
 .reservation-container {
   max-width: 700px;
