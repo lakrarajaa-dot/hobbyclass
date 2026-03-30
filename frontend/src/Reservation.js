@@ -11,6 +11,15 @@ const Reservation = ({ cours, user, onBack, onVoirFormateur }) => {
   const [reservationId, setReservationId] = useState(null);
   const [error, setError] = useState(null);
 
+
+    useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+  
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [etape]);
+
   useEffect(() => {
     fetch(`${API_URL}/api/cours/${cours.id}/disponibilites`)
       .then(res => res.json())
